@@ -195,7 +195,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-    @action(detail=False, methods=['delete'])
+    @action(detail=False, methods=['delete'], url_path='bulk-delete')
     def bulk_delete(self, request):
         """
         Delete all products.
