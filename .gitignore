@@ -68,3 +68,7 @@ coverage.xml
 uploads/
 *.csv
 
+# Documentation files (except README.md)
+*.md
+!README.md
+
