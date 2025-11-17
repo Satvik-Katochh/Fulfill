@@ -3,6 +3,7 @@
 ## 📋 Requirements Summary
 
 ### Core Features Required:
+
 1. **STORY 1: CSV File Upload (500k records)**
    - Upload large CSV via UI
    - Real-time progress indicator
@@ -37,6 +38,7 @@
    - Non-blocking processing
 
 ### Tech Stack Requirements:
+
 - **Framework**: Django (chosen for built-in features)
 - **Async Tasks**: Celery with Redis
 - **Database**: PostgreSQL
@@ -46,6 +48,7 @@
 ## 🏗️ Architecture Plan
 
 ### Backend-First Approach (Recommended)
+
 1. **Phase 1: Backend Core** (Priority)
    - Django project setup
    - Database models (Product, Webhook)
@@ -59,6 +62,7 @@
    - Progress polling/SSE implementation
 
 ### Project Structure:
+
 ```
 fulfill/
 ├── manage.py
@@ -87,6 +91,7 @@ fulfill/
 ## 🎯 Implementation Strategy
 
 ### Database Models:
+
 1. **Product**
    - sku (unique, case-insensitive)
    - name
@@ -109,6 +114,7 @@ fulfill/
    - created_at, updated_at
 
 ### API Endpoints Needed:
+
 - `POST /api/products/upload/` - Upload CSV
 - `GET /api/products/upload/{job_id}/status/` - Get upload progress
 - `GET /api/products/` - List products (with filters, pagination)
@@ -124,6 +130,7 @@ fulfill/
 - `POST /api/webhooks/{id}/test/` - Test webhook
 
 ### Celery Tasks:
+
 - `import_products_from_csv(file_path, job_id)` - Process CSV in chunks
 - `trigger_webhook(webhook_id, event_type, data)` - Async webhook calls
 
@@ -132,6 +139,7 @@ fulfill/
 ### Is 24 hours realistic? **YES, but tight**
 
 **Breakdown:**
+
 - **Backend Setup**: 2-3 hours
   - Django project, models, migrations
   - Celery + Redis setup
@@ -169,6 +177,7 @@ fulfill/
 **Total: ~20-26 hours** (with focused work)
 
 ### Tips for Success:
+
 1. ✅ **Start with backend** - Get API working first
 2. ✅ **Use Django REST Framework** - Faster API development
 3. ✅ **Simple frontend** - Basic HTML/JS is acceptable
@@ -194,14 +203,11 @@ fulfill/
   - Admin interface for quick testing
   - Good Celery integration
   - Can use DRF for clean APIs
-  
 - For 500k records:
   - Process in chunks (1000-5000 records at a time)
   - Use bulk_create/update for performance
   - Track progress in database
-  
 - Progress tracking:
   - Use polling (simpler) or SSE (better UX)
   - Store progress in ImportJob model
   - Update from Celery task
-
