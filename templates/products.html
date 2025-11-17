@@ -373,9 +373,14 @@ function deleteProduct(id) {
             if (!res.ok) {
                 throw new Error('Failed to delete product');
             }
+            // Handle 204 No Content (no body) or 200 OK with JSON
+            if (res.status === 204) {
+                return null; // No content to parse
+            }
             return res.json();
         })
         .then(() => {
+            // Refresh the product list to show updated data
             loadProducts();
             showToast('Success', 'Product deleted successfully!', 'success');
         })
