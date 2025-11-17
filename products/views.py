@@ -142,29 +142,34 @@ class ProductViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Read CSV file content in chunks to avoid memory issues on 512MB instances
-        # This reduces peak memory usage from full file size to chunk size
-        csv_content_parts = []
-        chunk_size = 512 * 1024  # 512KB chunks (smaller = less peak memory)
-        
-        for chunk in csv_file.chunks(chunk_size):
-            csv_content_parts.append(chunk.decode('utf-8'))
-        
-        # Join all parts (still creates full string, but peak memory is much lower)
-        csv_content = ''.join(csv_content_parts)
+        # Save file to upload directory
+        upload_dir = settings.UPLOAD_DIR
+        upload_dir.mkdir(exist_ok=True)
 
-        # Create import job with file content stored in database
-        # This allows the Celery worker (running on separate instance) to access the file
+        file_path = upload_dir / csv_file.name
+
+        # Handle file name conflicts
+        counter = 1
+        original_path = file_path
+        while file_path.exists():
+            file_path = original_path.parent / \
+                f"{original_path.stem}_{counter}{original_path.suffix}"
+            counter += 1
+
+        with open(file_path, 'wb+') as destination:
+            for chunk in csv_file.chunks():
+                destination.write(chunk)
+
+        # Create import job
         import_job = ImportJob.objects.create(
             status='pending',
             progress=0,
             total_records=0,
-            processed_records=0,
-            file_content=csv_content
+            processed_records=0
         )
 
-        # Start async import task - pass job_id only, task will read from database
-        import_products_from_csv.delay(import_job.id)
+        # Start async import task - pass file path and job_id
+        import_products_from_csv.delay(str(file_path), import_job.id)
 
         serializer = ImportJobSerializer(import_job)
         return Response(serializer.data, status=status.HTTP_202_ACCEPTED)

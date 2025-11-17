@@ -2,7 +2,6 @@
 Celery tasks for product operations.
 """
 import csv
-from io import StringIO
 from typing import Dict, List, Tuple
 from celery import shared_task
 from .models import Product, ImportJob
@@ -12,51 +11,39 @@ logger = logging.getLogger(__name__)
 
 
 @shared_task(bind=True, max_retries=3)
-def import_products_from_csv(self, job_id: int):
+def import_products_from_csv(self, file_path: str, job_id: int):
     """
-    Import products from CSV content stored in database.
+    Import products from CSV file in chunks for optimal performance.
 
     Args:
-        job_id: ID of the ImportJob tracking this import (contains file_content)
+        file_path: Path to the CSV file
+        job_id: ID of the ImportJob tracking this import
 
     Returns:
         Dict with import results
     """
     job = ImportJob.objects.get(id=job_id)
-    
-    # Check if file_content exists
-    if not job.file_content:
-        error_msg = "No file content found in ImportJob"
-        logger.error(error_msg)
-        job.status = 'failed'
-        job.error_message = error_msg
-        job.save(update_fields=['status', 'error_message', 'updated_at'])
-        raise ValueError(error_msg)
-    
     job.status = 'processing'
     job.save(update_fields=['status', 'updated_at'])
 
     try:
-        # Read CSV content from database and parse it
-        csv_content = job.file_content
-        csvfile = StringIO(csv_content)
-        
         # First, count actual CSV records (not file lines, since CSV can have multi-line fields)
         total_records = 0
         skipped_count = 0
         skipped_reasons = []
 
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            name = row.get('name', '').strip()
-            sku = row.get('sku', '').strip().lower()
-            if name and sku:
-                total_records += 1
-            else:
-                skipped_count += 1
-                reason = f"Missing {'name' if not name else ''} {'SKU' if not sku else ''}".strip(
-                )
-                skipped_reasons.append(reason)
+        with open(file_path, 'r', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                name = row.get('name', '').strip()
+                sku = row.get('sku', '').strip().lower()
+                if name and sku:
+                    total_records += 1
+                else:
+                    skipped_count += 1
+                    reason = f"Missing {'name' if not name else ''} {'SKU' if not sku else ''}".strip(
+                    )
+                    skipped_reasons.append(reason)
 
         logger.info(
             f"Total valid records: {total_records}, Skipped: {skipped_count}")
@@ -74,51 +61,50 @@ def import_products_from_csv(self, job_id: int):
         updated_count = 0
         actual_skipped = 0
 
-        # Recreate StringIO for processing (since we already read it for counting)
-        csvfile = StringIO(csv_content)
-        reader = csv.DictReader(csvfile)
-        chunk = []
+        with open(file_path, 'r', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            chunk = []
 
-        # Start at 2 (after header)
-        for row_num, row in enumerate(reader, start=2):
-            # Normalize and validate row data
-            name = row.get('name', '').strip()
-            sku = row.get('sku', '').strip().lower()
-            description = row.get('description', '').strip()
+            # Start at 2 (after header)
+            for row_num, row in enumerate(reader, start=2):
+                # Normalize and validate row data
+                name = row.get('name', '').strip()
+                sku = row.get('sku', '').strip().lower()
+                description = row.get('description', '').strip()
 
-            if not name or not sku:
-                actual_skipped += 1
-                logger.warning(
-                    f"Row {row_num}: Skipping - name='{name[:20]}...', sku='{sku[:20]}...'")
-                continue
+                if not name or not sku:
+                    actual_skipped += 1
+                    logger.warning(
+                        f"Row {row_num}: Skipping - name='{name[:20]}...', sku='{sku[:20]}...'")
+                    continue
 
-            chunk.append({
-                'name': name,
-                'sku': sku,
-                'description': description,
-                'active': True,  # Default to active
-            })
+                chunk.append({
+                    'name': name,
+                    'sku': sku,
+                    'description': description,
+                    'active': True,  # Default to active
+                })
 
-            # Process chunk when it reaches chunk_size
-            if len(chunk) >= chunk_size:
+                # Process chunk when it reaches chunk_size
+                if len(chunk) >= chunk_size:
+                    created, updated = _process_chunk(chunk)
+                    created_count += created
+                    updated_count += updated
+                    processed += len(chunk)
+
+                    # Update progress
+                    job.update_progress(processed, total_records)
+                    logger.info(
+                        f"Processed chunk: {processed}/{total_records} ({int(processed/total_records*100)}%)")
+                    chunk = []
+
+            # Process remaining records
+            if chunk:
                 created, updated = _process_chunk(chunk)
                 created_count += created
                 updated_count += updated
                 processed += len(chunk)
-
-                # Update progress
                 job.update_progress(processed, total_records)
-                logger.info(
-                    f"Processed chunk: {processed}/{total_records} ({int(processed/total_records*100)}%)")
-                chunk = []
-
-        # Process remaining records
-        if chunk:
-            created, updated = _process_chunk(chunk)
-            created_count += created
-            updated_count += updated
-            processed += len(chunk)
-            job.update_progress(processed, total_records)
 
         logger.info(
             f"Final: Processed={processed}, Created={created_count}, Updated={updated_count}, Skipped={actual_skipped}")
