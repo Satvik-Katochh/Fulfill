@@ -6,6 +6,8 @@ A scalable Django web application for importing and managing products from CSV f
 
 **Application URL:** [http://3.235.20.127](http://3.235.20.127)
 
+**Note:** The application uses HTTP (not HTTPS). Please use `http://` (not `https://`) when accessing the application.
+
 The application is deployed on AWS EC2 and is fully functional. All features are working and ready for review.
 
 ---
@@ -15,6 +17,7 @@ The application is deployed on AWS EC2 and is fully functional. All features are
 This application implements all requirements from the screening task:
 
 ### ✅ STORY 1 — File Upload via UI
+
 - ✅ Upload large CSV files (up to 500,000 products) through web interface
 - ✅ Clear and intuitive file upload component
 - ✅ Real-time progress indicator (percentage and progress bar)
@@ -24,6 +27,7 @@ This application implements all requirements from the screening task:
 - ✅ Optimized for large files with chunked processing
 
 ### ✅ STORY 1A — Upload Progress Visibility
+
 - ✅ Real-time progress updates (polling every 2 seconds)
 - ✅ Visual progress bar and percentage display
 - ✅ Status messages ("Processing", "Completed", "Failed")
@@ -31,6 +35,7 @@ This application implements all requirements from the screening task:
 - ✅ Smooth, interactive visual experience
 
 ### ✅ STORY 2 — Product Management UI
+
 - ✅ View, create, update, and delete products from web interface
 - ✅ Filtering by SKU, name, active status, and description
 - ✅ Paginated product list (50 products per page)
@@ -39,12 +44,14 @@ This application implements all requirements from the screening task:
 - ✅ Clean, minimalist design
 
 ### ✅ STORY 3 — Bulk Delete from UI
+
 - ✅ Delete all products with one click
 - ✅ Confirmation dialog ("Are you sure? This cannot be undone.")
 - ✅ Success/failure notifications
 - ✅ Visual feedback during processing
 
 ### ✅ STORY 4 — Webhook Configuration via UI
+
 - ✅ Add, edit, test, and delete webhooks from UI
 - ✅ Display webhook URLs, event types, and enable/disable status
 - ✅ Visual confirmation of test triggers (response code, response time)
@@ -57,7 +64,7 @@ This application implements all requirements from the screening task:
 ### 1. Upload CSV File (STORY 1 & 1A)
 
 1. **Navigate to Upload Page:**
-   - Go to: [http://3.235.20.127/upload/](http://3.235.20.127/upload/)
+   - Go to: [http://3.235.20.127/upload/](http://3.235.20.127/upload/) (use `http://` not `https://`)
    - Or click "Upload CSV" from the homepage
 
 2. **Upload Your CSV File:**
@@ -77,6 +84,7 @@ This application implements all requirements from the screening task:
    - Duplicate SKUs overwrite existing records
 
 **Sample CSV Format:**
+
 ```csv
 name,sku,description
 Product Name,ABC-123,Product description here
@@ -84,6 +92,7 @@ Another Product,XYZ-456,Another description
 ```
 
 **Test with Sample File:**
+
 - Use `sample_products_500.csv` included in the repository (500 products)
 - Or use the full 500,000 product CSV from the Google Drive link in requirements
 
@@ -92,7 +101,7 @@ Another Product,XYZ-456,Another description
 ### 2. Manage Products (STORY 2)
 
 1. **View Products:**
-   - Go to: [http://3.235.20.127/products/](http://3.235.20.127/products/)
+   - Go to: [http://3.235.20.127/products/](http://3.235.20.127/products/) (use `http://` not `https://`)
    - Products are displayed in a paginated table (50 per page)
    - Use "Previous" and "Next" buttons to navigate
 
@@ -131,7 +140,7 @@ Another Product,XYZ-456,Another description
 ### 3. Bulk Delete (STORY 3)
 
 1. **Delete All Products:**
-   - Go to Products page: [http://3.235.20.127/products/](http://3.235.20.127/products/)
+   - Go to Products page: [http://3.235.20.127/products/](http://3.235.20.127/products/) (use `http://` not `https://`)
    - Click "Delete All Products" button (red button at top)
    - Confirm in the dialog: "Are you sure? This cannot be undone!"
    - Click "OK" to proceed
@@ -146,7 +155,7 @@ Another Product,XYZ-456,Another description
 ### 4. Configure Webhooks (STORY 4)
 
 1. **Access Webhooks Page:**
-   - Go to: [http://3.235.20.127/webhooks/](http://3.235.20.127/webhooks/)
+   - Go to: [http://3.235.20.127/webhooks/](http://3.235.20.127/webhooks/) (use `http://` not `https://`)
 
 2. **Create Webhook:**
    - Click "Create Webhook" button
@@ -185,6 +194,7 @@ Another Product,XYZ-456,Another description
    - Webhook is removed
 
 **Webhook Payload Example:**
+
 ```json
 {
   "id": 123,
@@ -197,12 +207,14 @@ Another Product,XYZ-456,Another description
 ```
 
 **Webhook Events:**
+
 - `product.created`: Triggered when a product is created (via UI or CSV import)
 - `product.updated`: Triggered when a product is updated
 - `product.deleted`: Triggered when a product is deleted (single or bulk)
 
 **Testing Your Webhook Endpoint:**
 You can use services like:
+
 - [webhook.site](https://webhook.site) - Get a temporary webhook URL for testing
 - [httpbin.org](https://httpbin.org/post) - Test POST requests
 - Your own server endpoint
@@ -225,35 +237,38 @@ You can use services like:
 
 ### Products API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/products/` | List products (with filters & pagination) |
-| `POST` | `/api/products/` | Create product |
-| `GET` | `/api/products/{id}/` | Get product details |
-| `PUT` | `/api/products/{id}/` | Update product |
-| `DELETE` | `/api/products/{id}/` | Delete product |
-| `POST` | `/api/products/upload/` | Upload CSV file |
-| `GET` | `/api/products/upload/{job_id}/status/` | Get upload progress |
-| `DELETE` | `/api/products/bulk-delete/` | Delete all products |
+| Method   | Endpoint                                | Description                               |
+| -------- | --------------------------------------- | ----------------------------------------- |
+| `GET`    | `/api/products/`                        | List products (with filters & pagination) |
+| `POST`   | `/api/products/`                        | Create product                            |
+| `GET`    | `/api/products/{id}/`                   | Get product details                       |
+| `PUT`    | `/api/products/{id}/`                   | Update product                            |
+| `DELETE` | `/api/products/{id}/`                   | Delete product                            |
+| `POST`   | `/api/products/upload/`                 | Upload CSV file                           |
+| `GET`    | `/api/products/upload/{job_id}/status/` | Get upload progress                       |
+| `DELETE` | `/api/products/bulk-delete/`            | Delete all products                       |
 
 ### Webhooks API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/webhooks/` | List webhooks |
-| `POST` | `/api/webhooks/` | Create webhook |
-| `GET` | `/api/webhooks/{id}/` | Get webhook details |
-| `PUT` | `/api/webhooks/{id}/` | Update webhook |
-| `DELETE` | `/api/webhooks/{id}/` | Delete webhook |
-| `POST` | `/api/webhooks/{id}/test/` | Test webhook |
+| Method   | Endpoint                   | Description         |
+| -------- | -------------------------- | ------------------- |
+| `GET`    | `/api/webhooks/`           | List webhooks       |
+| `POST`   | `/api/webhooks/`           | Create webhook      |
+| `GET`    | `/api/webhooks/{id}/`      | Get webhook details |
+| `PUT`    | `/api/webhooks/{id}/`      | Update webhook      |
+| `DELETE` | `/api/webhooks/{id}/`      | Delete webhook      |
+| `POST`   | `/api/webhooks/{id}/test/` | Test webhook        |
 
 **API Base URL:** `http://3.235.20.127/api/`
+
+**Important:** Always use `http://` (not `https://`) when accessing the application. HTTPS is not configured.
 
 ---
 
 ## 🔧 Key Features & Implementation Details
 
 ### CSV Import
+
 - **Chunked Processing**: Processes 5,000 records at a time for optimal performance
 - **SKU Normalization**: All SKUs are normalized to lowercase for case-insensitive matching
 - **Duplicate Handling**: Last occurrence of duplicate SKU overwrites previous ones
@@ -261,18 +276,21 @@ You can use services like:
 - **Error Handling**: Comprehensive error messages with retry capability
 
 ### Product Management
+
 - **Pagination**: 50 products per page
 - **Filtering**: Multiple filter options with real-time application
 - **Validation**: Client-side and server-side validation
 - **Responsive Design**: Works on desktop and mobile devices
 
 ### Webhooks
+
 - **Asynchronous Processing**: Webhooks triggered via Celery (non-blocking)
 - **Event Types**: Supports product.created, product.updated, product.deleted
 - **Error Handling**: Failed webhooks don't block main operations
 - **Testing**: Built-in test functionality with response details
 
 ### Performance Optimizations
+
 - **Bulk Operations**: Uses `bulk_create` and `bulk_update` for efficient database operations
 - **Async Tasks**: Long-running operations handled by Celery workers
 - **Database Indexing**: SKU field indexed for fast lookups
@@ -355,6 +373,7 @@ Fulfill/
 ## 🚀 Local Development Setup
 
 ### Prerequisites
+
 - Python 3.9+
 - PostgreSQL (optional - SQLite works for development)
 - Redis (for Celery)
@@ -396,6 +415,7 @@ python manage.py runserver
 ```
 
 ### Access Application
+
 - **Frontend**: http://localhost:8000/
 - **API**: http://localhost:8000/api/products/
 - **Django Admin**: http://localhost:8000/admin/
@@ -415,6 +435,7 @@ python manage.py runserver
 ## 📊 Commit History
 
 The project follows a clean, logical commit history:
+
 - **Initial Setup**: Project structure, models, migrations
 - **Backend Development**: API endpoints, Celery tasks, business logic
 - **Frontend Development**: UI components, JavaScript functionality
@@ -428,6 +449,7 @@ Each commit is focused and meaningful, demonstrating clear planning and executio
 ## 🌐 Deployment
 
 The application is deployed on **AWS EC2** with:
+
 - **Gunicorn**: Production WSGI server
 - **Nginx**: Reverse proxy and static file serving
 - **PostgreSQL**: Production database
