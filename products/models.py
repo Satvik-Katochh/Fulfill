@@ -63,6 +63,7 @@ class ImportJob(models.Model):
         - total_records: Total number of records to process
         - processed_records: Number of records processed so far
         - error_message: Error message if import failed
+        - file_content: CSV file content stored in database (for worker access on Render)
         - created_at: Timestamp when import job was created
         - updated_at: Timestamp when import job was last updated
     """
@@ -87,6 +88,8 @@ class ImportJob(models.Model):
         default=0, help_text="Number of records processed")
     error_message = models.TextField(
         blank=True, null=True, help_text="Error message if failed")
+    file_content = models.TextField(
+        blank=True, null=True, help_text="CSV file content stored in database for worker access")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

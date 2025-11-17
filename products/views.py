@@ -142,34 +142,21 @@ class ProductViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Save file to upload directory
-        upload_dir = settings.UPLOAD_DIR
-        upload_dir.mkdir(exist_ok=True)
+        # Read CSV file content into memory
+        csv_content = csv_file.read().decode('utf-8')
 
-        file_path = upload_dir / csv_file.name
-
-        # Handle file name conflicts
-        counter = 1
-        original_path = file_path
-        while file_path.exists():
-            file_path = original_path.parent / \
-                f"{original_path.stem}_{counter}{original_path.suffix}"
-            counter += 1
-
-        with open(file_path, 'wb+') as destination:
-            for chunk in csv_file.chunks():
-                destination.write(chunk)
-
-        # Create import job
+        # Create import job with file content stored in database
+        # This allows the Celery worker (running on separate instance) to access the file
         import_job = ImportJob.objects.create(
             status='pending',
             progress=0,
             total_records=0,
-            processed_records=0
+            processed_records=0,
+            file_content=csv_content
         )
 
-        # Start async import task
-        import_products_from_csv.delay(str(file_path), import_job.id)
+        # Start async import task - pass job_id only, task will read from database
+        import_products_from_csv.delay(import_job.id)
 
         serializer = ImportJobSerializer(import_job)
         return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
