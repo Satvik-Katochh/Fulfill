@@ -144,6 +144,7 @@ def import_products_from_csv(self, file_path: str, job_id: int):
 def _process_chunk(chunk: List[Dict]) -> Tuple[int, int]:
     """
     Process a chunk of products using bulk operations.
+    Handles duplicates within chunk (last occurrence wins) and overwrites existing products.
 
     Args:
         chunk: List of product dictionaries
@@ -154,22 +155,28 @@ def _process_chunk(chunk: List[Dict]) -> Tuple[int, int]:
     created_count = 0
     updated_count = 0
 
-    # Get all SKUs from chunk (normalized to lowercase)
-    skus = [item['sku'].lower() for item in chunk]
+    # First, handle duplicates within chunk (last occurrence wins)
+    # Use dict to track last occurrence of each SKU in chunk
+    chunk_by_sku = {}
+    for item in chunk:
+        sku_lower = item['sku'].lower()
+        chunk_by_sku[sku_lower] = item  # Last occurrence overwrites previous ones
+
+    # Get unique SKUs from deduplicated chunk
+    unique_skus = list(chunk_by_sku.keys())
 
     # Fetch existing products by SKU (case-insensitive)
     existing_products = {
-        p.sku.lower(): p for p in Product.objects.filter(sku__in=skus)
+        p.sku.lower(): p for p in Product.objects.filter(sku__in=unique_skus)
     }
 
     products_to_create = []
     products_to_update = []
 
-    for item in chunk:
-        sku_lower = item['sku'].lower()
-
+    # Process deduplicated chunk
+    for sku_lower, item in chunk_by_sku.items():
         if sku_lower in existing_products:
-            # Update existing product
+            # Update existing product (overwrite)
             product = existing_products[sku_lower]
             product.name = item['name']
             product.description = item['description']
