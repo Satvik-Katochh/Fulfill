@@ -4,6 +4,7 @@ Celery tasks for product operations.
 import csv
 from typing import Dict, List, Tuple
 from celery import shared_task
+from django.db import connection
 from .models import Product, ImportJob
 import logging
 
@@ -139,7 +140,12 @@ def import_products_from_csv(self, file_path: str, job_id: int):
 
 def _process_chunk(chunk: List[Dict]) -> Tuple[int, int]:
     """
-    Process a chunk of products using bulk operations.
+    Process a chunk of products using database-aware method.
+    
+    Automatically selects the best approach based on database type:
+    - PostgreSQL: Uses UPSERT (atomic, faster)
+    - SQLite: Uses query + bulk operations (compatible)
+    
     Handles duplicates within chunk (last occurrence wins) and overwrites existing products.
 
     Args:
@@ -148,23 +154,108 @@ def _process_chunk(chunk: List[Dict]) -> Tuple[int, int]:
     Returns:
         Tuple of (created_count, updated_count)
     """
-    created_count = 0
-    updated_count = 0
-
-    # First, handle duplicates within chunk (last occurrence wins)
-    # Use dict to track last occurrence of each SKU in chunk
+    # First, normalize and deduplicate chunk (last occurrence wins)
     chunk_by_sku = {}
     for item in chunk:
-        sku_lower = item['sku'].lower()
+        # Ensure SKU is normalized to lowercase
+        sku_lower = item['sku'].lower().strip()
+        item['sku'] = sku_lower  # Normalize in place
         chunk_by_sku[sku_lower] = item  # Last occurrence overwrites previous ones
+
+    # Detect database type and use appropriate method
+    is_postgres = 'postgresql' in connection.vendor
+    
+    if is_postgres:
+        # Use PostgreSQL UPSERT for atomic insert/update
+        return _process_chunk_upsert(chunk_by_sku)
+    else:
+        # Use query-based method for SQLite compatibility
+        return _process_chunk_query_based(chunk_by_sku)
+
+
+def _process_chunk_upsert(chunk_by_sku: Dict[str, Dict]) -> Tuple[int, int]:
+    """
+    Process chunk using PostgreSQL UPSERT (ON CONFLICT).
+    
+    This method is faster and atomic - the database handles insert vs update.
+    Only works with PostgreSQL.
+    
+    Args:
+        chunk_by_sku: Dictionary mapping normalized SKU to product data
+        
+    Returns:
+        Tuple of (created_count, updated_count)
+    """
+    if not chunk_by_sku:
+        return 0, 0
+    
+    # Query existing products to get accurate counts
+    unique_skus = list(chunk_by_sku.keys())
+    existing_skus = set(
+        Product.objects.filter(sku__in=unique_skus)
+        .values_list('sku', flat=True)
+    )
+    
+    # Count how many will be created vs updated
+    created_count = sum(1 for sku in unique_skus if sku not in existing_skus)
+    updated_count = len(existing_skus)
+    
+    # Build product list for UPSERT
+    products = []
+    for sku_lower, item in chunk_by_sku.items():
+        products.append(Product(
+            sku=sku_lower,
+            name=item['name'],
+            description=item['description'],
+            active=item['active']
+        ))
+    
+    try:
+        # PostgreSQL UPSERT: database handles insert vs update atomically
+        # update_conflicts=True uses ON CONFLICT DO UPDATE
+        Product.objects.bulk_create(
+            products,
+            update_conflicts=True,
+            unique_fields=['sku'],
+            update_fields=['name', 'description', 'active', 'updated_at']
+        )
+        
+        logger.debug(f"UPSERT processed {len(products)} products ({created_count} created, {updated_count} updated)")
+        
+        return created_count, updated_count
+        
+    except Exception as e:
+        # Fallback to query-based method if UPSERT fails
+        logger.warning(f"UPSERT failed, falling back to query-based method: {e}")
+        return _process_chunk_query_based(chunk_by_sku)
+
+
+def _process_chunk_query_based(chunk_by_sku: Dict[str, Dict]) -> Tuple[int, int]:
+    """
+    Process chunk using query + bulk operations (SQLite compatible).
+    
+    This method:
+    1. Queries existing products by SKU
+    2. Splits into create vs update lists
+    3. Uses bulk_create with ignore_conflicts for safety
+    4. Uses bulk_update for existing products
+    
+    Args:
+        chunk_by_sku: Dictionary mapping normalized SKU to product data
+        
+    Returns:
+        Tuple of (created_count, updated_count)
+    """
+    created_count = 0
+    updated_count = 0
 
     # Get unique SKUs from deduplicated chunk
     unique_skus = list(chunk_by_sku.keys())
 
-    # Fetch existing products by SKU (case-insensitive)
-    existing_products = {
-        p.sku.lower(): p for p in Product.objects.filter(sku__in=unique_skus)
-    }
+    # Fetch existing products by SKU
+    existing_products = {}
+    for product in Product.objects.filter(sku__in=unique_skus):
+        existing_products[product.sku.lower()] = product
 
     products_to_create = []
     products_to_update = []
@@ -180,13 +271,69 @@ def _process_chunk(chunk: List[Dict]) -> Tuple[int, int]:
             products_to_update.append(product)
             updated_count += 1
         else:
-            # Create new product
-            products_to_create.append(Product(**item))
-            created_count += 1
+            # Create new product - ensure SKU is normalized
+            # bulk_create bypasses save(), so normalize SKU manually
+            product = Product(
+                name=item['name'],
+                sku=sku_lower,  # Already normalized
+                description=item['description'],
+                active=item['active']
+            )
+            products_to_create.append(product)
 
     # Bulk create new products
+    # Use ignore_conflicts=True to handle race conditions where a product
+    # might have been created between our query and this create operation
     if products_to_create:
-        Product.objects.bulk_create(products_to_create, ignore_conflicts=False)
+        try:
+            # Try bulk_create first for performance
+            # ignore_conflicts=True will skip any that already exist (handles race conditions)
+            created_objs = Product.objects.bulk_create(
+                products_to_create, 
+                ignore_conflicts=True
+            )
+            # Count actual created objects
+            created_count = len(created_objs)
+            
+            # Handle any that were skipped due to conflicts
+            # These are products that exist in DB but weren't in our initial query
+            # (could be from a previous chunk or race condition)
+            if len(created_objs) < len(products_to_create):
+                # Find which SKUs were skipped
+                created_skus = {obj.sku for obj in created_objs}
+                skipped_products = [p for p in products_to_create if p.sku not in created_skus]
+                
+                # Update the skipped products (they already exist, so update them)
+                if skipped_products:
+                    skipped_skus = [p.sku for p in skipped_products]
+                    existing_skipped = Product.objects.filter(sku__in=skipped_skus)
+                    
+                    for existing in existing_skipped:
+                        matching_new = next((p for p in skipped_products if p.sku == existing.sku), None)
+                        if matching_new:
+                            existing.name = matching_new.name
+                            existing.description = matching_new.description
+                            existing.active = matching_new.active
+                            products_to_update.append(existing)
+                            updated_count += 1
+                            
+        except Exception as e:
+            # Fallback: if bulk_create completely fails, use update_or_create
+            logger.warning(f"bulk_create failed, falling back to update_or_create: {e}")
+            created_count = 0
+            for product in products_to_create:
+                obj, was_created = Product.objects.update_or_create(
+                    sku=product.sku,
+                    defaults={
+                        'name': product.name,
+                        'description': product.description,
+                        'active': product.active
+                    }
+                )
+                if was_created:
+                    created_count += 1
+                else:
+                    updated_count += 1
 
     # Bulk update existing products
     if products_to_update:
