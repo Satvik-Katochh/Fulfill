@@ -58,6 +58,23 @@
 <script>
 const API_BASE = '/api/products';
 
+function showToast(title, message, type = 'success') {
+    const toastEl = document.getElementById('toast');
+    const toastTitle = document.getElementById('toastTitle');
+    const toastMessage = document.getElementById('toastMessage');
+    const toastIcon = document.getElementById('toastIcon');
+    
+    toastIcon.className = type === 'success' 
+        ? 'bi bi-check-circle-fill text-success me-2'
+        : 'bi bi-exclamation-circle-fill text-danger me-2';
+    
+    toastTitle.textContent = title;
+    toastMessage.textContent = message;
+    
+    const toast = new bootstrap.Toast(toastEl, { autohide: true, delay: 4000 });
+    toast.show();
+}
+
 document.getElementById('uploadForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -65,7 +82,7 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
     const file = fileInput.files[0];
     
     if (!file) {
-        alert('Please select a file');
+        showToast('Error', 'Please select a file to upload', 'error');
         return;
     }
     
@@ -98,7 +115,7 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
         pollProgress(jobId);
         
     } catch (error) {
-        alert('Error: ' + error.message);
+        showToast('Upload Failed', error.message || 'Failed to upload file', 'error');
         uploadBtn.disabled = false;
         uploadBtn.innerHTML = '<i class="bi bi-upload"></i> Upload and Import';
     }
@@ -133,6 +150,7 @@ function pollProgress(jobId) {
                 statusText.className = 'text-success';
                 progressBar.classList.remove('progress-bar-animated');
                 progressBar.classList.add('bg-success');
+                showToast('Success', `Import completed! ${processed} records processed.`, 'success');
                 clearInterval(interval);
                 document.getElementById('uploadBtn').disabled = false;
                 document.getElementById('uploadBtn').innerHTML = '<i class="bi bi-upload"></i> Upload and Import';
@@ -142,6 +160,7 @@ function pollProgress(jobId) {
                 const errorDiv = document.getElementById('errorMessage');
                 errorDiv.textContent = data.error_message || 'Unknown error';
                 errorDiv.style.display = 'block';
+                showToast('Import Failed', data.error_message || 'Unknown error occurred', 'error');
                 clearInterval(interval);
                 document.getElementById('uploadBtn').disabled = false;
                 document.getElementById('uploadBtn').innerHTML = '<i class="bi bi-upload"></i> Upload and Import';
@@ -152,6 +171,7 @@ function pollProgress(jobId) {
             
         } catch (error) {
             console.error('Error polling progress:', error);
+            showToast('Error', 'Failed to check import progress', 'error');
         }
     }, 2000); // Poll every 2 seconds
 }

@@ -55,6 +55,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         if description:
             queryset = queryset.filter(description__icontains=description)
 
+        # Order by created_at descending (newest first) so newly created products appear on first page
         return queryset.order_by('-created_at')
 
     def create(self, request, *args, **kwargs):

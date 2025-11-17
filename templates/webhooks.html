@@ -84,8 +84,16 @@
 const API_BASE = '/api/webhooks';
 
 function loadWebhooks() {
+    const tbody = document.getElementById('webhooksTable');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center"><span class="spinner-border spinner-border-sm me-2"></span>Loading webhooks...</td></tr>';
+    
     fetch(API_BASE + '/')
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            return res.json();
+        })
         .then(webhooks => {
             renderWebhooks(webhooks.results || webhooks);
         })
@@ -93,6 +101,7 @@ function loadWebhooks() {
             console.error('Error loading webhooks:', err);
             document.getElementById('webhooksTable').innerHTML = 
                 '<tr><td colspan="6" class="text-center text-danger">Error loading webhooks</td></tr>';
+            showToast('Error', 'Failed to load webhooks. Please try again.', 'error');
         });
 }
 
@@ -133,8 +142,18 @@ function openCreateModal() {
 }
 
 function editWebhook(id) {
+    const editBtn = event.target.closest('button');
+    const originalBtnText = editBtn.innerHTML;
+    editBtn.disabled = true;
+    editBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    
     fetch(`${API_BASE}/${id}/`)
-        .then(res => res.json())
+        .then(res => {
+            if (!res.ok) {
+                throw new Error('Failed to load webhook');
+            }
+            return res.json();
+        })
         .then(webhook => {
             document.getElementById('modalTitle').textContent = 'Edit Webhook';
             document.getElementById('webhookId').value = webhook.id;
@@ -142,11 +161,42 @@ function editWebhook(id) {
             document.getElementById('webhookEventType').value = webhook.event_type;
             document.getElementById('webhookEnabled').checked = webhook.enabled;
             new bootstrap.Modal(document.getElementById('webhookModal')).show();
+        })
+        .catch(err => {
+            showToast('Error', err.message || 'Failed to load webhook', 'error');
+        })
+        .finally(() => {
+            editBtn.disabled = false;
+            editBtn.innerHTML = originalBtnText;
         });
+}
+
+function showToast(title, message, type = 'success') {
+    const toastEl = document.getElementById('toast');
+    const toastTitle = document.getElementById('toastTitle');
+    const toastMessage = document.getElementById('toastMessage');
+    const toastIcon = document.getElementById('toastIcon');
+    
+    toastIcon.className = type === 'success' 
+        ? 'bi bi-check-circle-fill text-success me-2'
+        : 'bi bi-exclamation-circle-fill text-danger me-2';
+    
+    toastTitle.textContent = title;
+    toastMessage.textContent = message;
+    
+    const toast = new bootstrap.Toast(toastEl, { autohide: true, delay: 3000 });
+    toast.show();
 }
 
 function saveWebhook() {
     const id = document.getElementById('webhookId').value;
+    const isEdit = !!id;
+    const saveBtn = document.querySelector('#webhookModal .btn-primary');
+    const originalBtnText = saveBtn.innerHTML;
+    
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving...';
+    
     const data = {
         url: document.getElementById('webhookUrl').value,
         event_type: document.getElementById('webhookEventType').value,
@@ -161,31 +211,95 @@ function saveWebhook() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     })
-    .then(res => res.json())
+    .then(res => {
+        if (!res.ok) {
+            return res.json().then(err => {
+                const errorMsg = err.non_field_errors?.[0] || err.detail || err.url?.[0] || 'Failed to save webhook';
+                throw new Error(errorMsg);
+            });
+        }
+        return res.json();
+    })
     .then(() => {
         bootstrap.Modal.getInstance(document.getElementById('webhookModal')).hide();
         loadWebhooks();
+        showToast(
+            'Success',
+            isEdit ? 'Webhook updated successfully!' : 'Webhook created successfully!',
+            'success'
+        );
     })
-    .catch(err => alert('Error: ' + err.message));
+    .catch(err => {
+        showToast('Error', err.message || 'Failed to save webhook', 'error');
+    })
+    .finally(() => {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalBtnText;
+    });
 }
 
 function deleteWebhook(id) {
     if (!confirm('Are you sure you want to delete this webhook?')) return;
     
+    const deleteBtn = event.target.closest('button');
+    const originalBtnText = deleteBtn.innerHTML;
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    
     fetch(`${API_BASE}/${id}/`, { method: 'DELETE' })
-        .then(() => loadWebhooks())
-        .catch(err => alert('Error: ' + err.message));
+        .then(res => {
+            if (!res.ok) {
+                throw new Error('Failed to delete webhook');
+            }
+        })
+        .then(() => {
+            loadWebhooks();
+            showToast('Success', 'Webhook deleted successfully!', 'success');
+        })
+        .catch(err => {
+            showToast('Error', err.message || 'Failed to delete webhook', 'error');
+        })
+        .finally(() => {
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = originalBtnText;
+        });
 }
 
 function testWebhook(id) {
+    const testBtn = event.target.closest('button');
+    const originalBtnText = testBtn.innerHTML;
+    testBtn.disabled = true;
+    testBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    
     fetch(`${API_BASE}/${id}/test/`, { method: 'POST' })
-        .then(res => res.json())
-        .then(data => {
-            const status = data.status === 'success' ? 'success' : 'danger';
-            const message = `Status: ${data.status_code || 'N/A'}\nResponse Time: ${data.response_time || 'N/A'}s\nStatus: ${data.status}`;
-            alert(message);
+        .then(res => {
+            if (!res.ok) {
+                throw new Error('Failed to test webhook');
+            }
+            return res.json();
         })
-        .catch(err => alert('Error testing webhook: ' + err.message));
+        .then(data => {
+            if (data.status === 'success') {
+                showToast(
+                    'Webhook Test Success',
+                    `Status Code: ${data.status_code || 'N/A'}, Response Time: ${data.response_time || 'N/A'}s`,
+                    'success'
+                );
+            } else {
+                showToast(
+                    'Webhook Test Failed',
+                    `Error: ${data.error || 'Unknown error'}`,
+                    'error'
+                );
+            }
+        })
+        .catch(err => {
+            showToast('Error', err.message || 'Failed to test webhook', 'error');
+        })
+        .finally(() => {
+            testBtn.disabled = false;
+            testBtn.innerHTML = originalBtnText;
+        });
 }
 
 // Load webhooks on page load
