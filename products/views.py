@@ -143,6 +143,8 @@ class ProductViewSet(viewsets.ModelViewSet):
             )
 
         # Save file to upload directory
+        import shutil
+        
         upload_dir = settings.UPLOAD_DIR
         upload_dir.mkdir(exist_ok=True)
 
@@ -156,9 +158,15 @@ class ProductViewSet(viewsets.ModelViewSet):
                 f"{original_path.stem}_{counter}{original_path.suffix}"
             counter += 1
 
+        # Optimized file saving using shutil.copyfileobj with larger buffer
+        # This is faster than chunk-by-chunk writing because:
+        # 1. Uses optimized C-level file operations
+        # 2. Larger buffer (1MB) = fewer system calls
+        # 3. More efficient memory usage
         with open(file_path, 'wb+') as destination:
-            for chunk in csv_file.chunks():
-                destination.write(chunk)
+            # Use 1MB buffer instead of default 64KB for faster writes
+            # shutil.copyfileobj is optimized C code, much faster than Python loop
+            shutil.copyfileobj(csv_file, destination, length=1024*1024)
 
         # Create import job
         import_job = ImportJob.objects.create(
