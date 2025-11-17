@@ -1,6 +1,8 @@
 """
 API views for products app.
 """
+import shutil
+import logging
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -11,7 +13,6 @@ from .models import Product, ImportJob
 from .serializers import ProductSerializer, ProductListSerializer, ImportJobSerializer
 from .tasks import import_products_from_csv
 from webhooks.tasks import trigger_webhooks_for_event
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -143,8 +144,6 @@ class ProductViewSet(viewsets.ModelViewSet):
             )
 
         # Save file to upload directory
-        import shutil
-        
         upload_dir = settings.UPLOAD_DIR
         upload_dir.mkdir(exist_ok=True)
 
