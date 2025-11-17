@@ -33,15 +33,15 @@
                 <div class="mb-2">
                     <strong>Status:</strong> <span id="statusText">Processing...</span>
                 </div>
-                <div class="progress mb-2">
+                <div class="progress mb-2" style="height: 30px;">
                     <div class="progress-bar progress-bar-striped progress-bar-animated" 
                          role="progressbar" 
                          id="progressBar" 
-                         style="width: 0%"
+                         style="width: 0%; transition: width 0.3s ease;"
                          aria-valuenow="0" 
                          aria-valuemin="0" 
                          aria-valuemax="100">
-                        <span id="progressText">0%</span>
+                        <span id="progressText" class="fw-bold">0%</span>
                     </div>
                 </div>
                 <div class="text-muted small">
@@ -91,6 +91,25 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
         return;
     }
     
+    // IMMEDIATE FEEDBACK: Show progress card right away
+    const progressCard = document.getElementById('progressCard');
+    const statusText = document.getElementById('statusText');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    
+    // Reset progress card
+    progressCard.style.display = 'block';
+    statusText.textContent = 'Uploading file...';
+    statusText.className = '';
+    progressBar.style.width = '0%';
+    progressBar.setAttribute('aria-valuenow', '0');
+    progressText.textContent = '0%';
+    progressBar.classList.remove('bg-success', 'bg-danger');
+    progressBar.classList.add('progress-bar-animated');
+    document.getElementById('processedRecords').textContent = '0';
+    document.getElementById('totalRecords').textContent = '0';
+    document.getElementById('errorMessage').style.display = 'none';
+    
     const formData = new FormData();
     formData.append('file', file);
     
@@ -99,6 +118,9 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
     uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Uploading...';
     
     try {
+        // Update status: File is being uploaded
+        statusText.textContent = 'Uploading file...';
+        
         const response = await fetch(`${API_BASE}/upload/`, {
             method: 'POST',
             body: formData
@@ -109,15 +131,18 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
             throw new Error(error.error || 'Upload failed');
         }
         
+        // File upload completed - update status
+        statusText.textContent = 'File uploaded, starting import...';
+        
         const data = await response.json();
         const jobId = data.id;
         
-        // Show progress card
-        document.getElementById('progressCard').style.display = 'block';
-        document.getElementById('statusText').textContent = 'Processing...';
-        
-        // Start polling for progress
-        pollProgress(jobId);
+        // Small delay to show "starting import" message, then start processing
+        setTimeout(() => {
+            statusText.textContent = 'Processing...';
+            // Start polling for progress immediately
+            pollProgress(jobId);
+        }, 300);
         
     } catch (error) {
         // Show error message with retry option
@@ -128,6 +153,11 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
         errorDiv.style.display = 'block';
         retryBtn.style.display = 'inline-block';
         
+        statusText.textContent = 'Upload Failed';
+        statusText.className = 'text-danger';
+        progressBar.classList.remove('progress-bar-animated');
+        progressBar.classList.add('bg-danger');
+        
         showToast('Upload Failed', error.message || 'Failed to upload file', 'error');
         uploadBtn.disabled = false;
         uploadBtn.innerHTML = '<i class="bi bi-upload"></i> Upload and Import';
@@ -135,8 +165,10 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
 });
 
 function pollProgress(jobId) {
+    let pollCount = 0;
     const interval = setInterval(async () => {
         try {
+            pollCount++;
             const response = await fetch(`${API_BASE}/upload/${jobId}/status/`);
             const data = await response.json();
             
@@ -145,31 +177,35 @@ function pollProgress(jobId) {
             const total = data.total_records || 0;
             const status = data.status;
             
-            // Update progress bar
+            // Update progress bar with smooth animation
             const progressBar = document.getElementById('progressBar');
             const progressText = document.getElementById('progressText');
+            const statusText = document.getElementById('statusText');
+            
+            // Smooth progress bar update
             progressBar.style.width = progress + '%';
             progressBar.setAttribute('aria-valuenow', progress);
             progressText.textContent = progress + '%';
             
             // Update records count
-            document.getElementById('processedRecords').textContent = processed;
-            document.getElementById('totalRecords').textContent = total;
+            document.getElementById('processedRecords').textContent = processed.toLocaleString();
+            document.getElementById('totalRecords').textContent = total.toLocaleString();
             
-            // Update status
-            const statusText = document.getElementById('statusText');
+            // Update status based on current state
             if (status === 'completed') {
                 statusText.textContent = 'Import Complete!';
-                statusText.className = 'text-success';
+                statusText.className = 'text-success fw-bold';
                 progressBar.classList.remove('progress-bar-animated');
                 progressBar.classList.add('bg-success');
-                showToast('Success', `Import completed! ${processed} records processed.`, 'success');
+                showToast('Success', `Import completed! ${processed.toLocaleString()} records processed.`, 'success');
                 clearInterval(interval);
                 document.getElementById('uploadBtn').disabled = false;
                 document.getElementById('uploadBtn').innerHTML = '<i class="bi bi-upload"></i> Upload and Import';
             } else if (status === 'failed') {
                 statusText.textContent = 'Import Failed';
-                statusText.className = 'text-danger';
+                statusText.className = 'text-danger fw-bold';
+                progressBar.classList.remove('progress-bar-animated');
+                progressBar.classList.add('bg-danger');
                 const errorDiv = document.getElementById('errorMessage');
                 const errorText = document.getElementById('errorText');
                 const retryBtn = document.getElementById('retryBtn');
@@ -180,14 +216,26 @@ function pollProgress(jobId) {
                 clearInterval(interval);
                 document.getElementById('uploadBtn').disabled = false;
                 document.getElementById('uploadBtn').innerHTML = '<i class="bi bi-upload"></i> Upload and Import';
+            } else if (status === 'pending') {
+                // Still waiting for task to start
+                if (pollCount <= 2) {
+                    statusText.textContent = 'File uploaded, starting import...';
+                } else {
+                    statusText.textContent = 'Processing...';
+                }
+                statusText.className = '';
             } else {
+                // Processing - show progress
                 statusText.textContent = 'Processing...';
                 statusText.className = '';
             }
             
         } catch (error) {
             console.error('Error polling progress:', error);
-            showToast('Error', 'Failed to check import progress', 'error');
+            // Don't show error toast on every failed poll, only log it
+            if (pollCount === 1) {
+                showToast('Error', 'Failed to check import progress', 'error');
+            }
         }
     }, 2000); // Poll every 2 seconds
 }
