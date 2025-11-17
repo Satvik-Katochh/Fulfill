@@ -1,0 +1,105 @@
+services:
+  # Django Web Service
+  - type: web
+    name: fulfill-web
+    env: python
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: gunicorn fulfill.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: False
+      - key: USE_POSTGRES
+        value: True
+      - key: DB_NAME
+        fromDatabase:
+          name: fulfill-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: fulfill-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: fulfill-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: fulfill-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: fulfill-db
+          property: port
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: fulfill-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: fulfill-redis
+          property: connectionString
+
+  # Celery Worker Service
+  - type: worker
+    name: fulfill-worker
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A fulfill worker --loglevel=info
+    envVars:
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: fulfill-web
+          property: env.SECRET_KEY
+      - key: DEBUG
+        value: False
+      - key: USE_POSTGRES
+        value: True
+      - key: DB_NAME
+        fromDatabase:
+          name: fulfill-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: fulfill-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: fulfill-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: fulfill-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: fulfill-db
+          property: port
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: fulfill-redis
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          type: redis
+          name: fulfill-redis
+          property: connectionString
+
+databases:
+  - name: fulfill-db
+    databaseName: fulfill_db
+    user: fulfill_user
+    plan: free
+
+# Redis instance
+services:
+  - type: redis
+    name: fulfill-redis
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+
