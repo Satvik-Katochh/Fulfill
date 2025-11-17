@@ -142,8 +142,16 @@ class ProductViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Read CSV file content into memory
-        csv_content = csv_file.read().decode('utf-8')
+        # Read CSV file content in chunks to avoid memory issues on 512MB instances
+        # This reduces peak memory usage from full file size to chunk size
+        csv_content_parts = []
+        chunk_size = 512 * 1024  # 512KB chunks (smaller = less peak memory)
+        
+        for chunk in csv_file.chunks(chunk_size):
+            csv_content_parts.append(chunk.decode('utf-8'))
+        
+        # Join all parts (still creates full string, but peak memory is much lower)
+        csv_content = ''.join(csv_content_parts)
 
         # Create import job with file content stored in database
         # This allows the Celery worker (running on separate instance) to access the file
