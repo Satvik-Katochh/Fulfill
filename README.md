@@ -21,35 +21,43 @@ A scalable web application for importing and managing products from CSV files (u
 ## Quick Start
 
 ### Prerequisites
-- Python 3.10+
-- PostgreSQL
-- Redis
+- Python 3.9+
+- PostgreSQL (optional - SQLite works for development)
+- Redis (for Celery task queue)
 
 ### Installation
 
 ```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Activate virtual environment (already created as fulfill-assignment)
+source fulfill-assignment/bin/activate
 
-# Install dependencies
+# Install dependencies (if not already installed)
 pip install -r requirements.txt
 
-# Setup database
-python manage.py migrate
+# Set environment variable for SQLite (for local testing)
+export USE_SQLITE=True
 
 # Run migrations
 python manage.py migrate
 
-# Create superuser (optional)
+# Create superuser (for Django admin)
 python manage.py createsuperuser
 
 # Run development server
 python manage.py runserver
 
-# In separate terminal, run Celery worker
+# In separate terminal, start Redis (if not running)
+redis-server
+
+# In another terminal, run Celery worker
+source fulfill-assignment/bin/activate
 celery -A fulfill worker --loglevel=info
 ```
+
+### Access the Application
+- **Frontend**: http://localhost:8000/
+- **Django Admin**: http://localhost:8000/admin/
+- **API**: http://localhost:8000/api/products/
 
 ## Project Structure
 
@@ -82,11 +90,23 @@ fulfill/
 
 ## Development Notes
 
-- CSV import processes in chunks for performance
-- SKU is case-insensitive and unique
+- CSV import processes in chunks (5000 records at a time) for optimal performance
+- SKU is case-insensitive and unique (normalized to lowercase)
 - Duplicate SKUs automatically overwrite existing records
-- Progress tracking via polling or SSE
-- Webhooks triggered asynchronously to avoid blocking
+- Progress tracking via polling (every 2 seconds)
+- Webhooks triggered asynchronously via Celery to avoid blocking
+- Sample CSV file (`sample_products_500.csv`) included for testing
+
+## Testing
+
+See [TESTING.md](TESTING.md) for comprehensive testing guide.
+
+## Commit History
+
+The project follows a clean commit history with logical phases:
+- **Phase 1**: Backend foundation (Models, Admin, Migrations)
+- **Phase 2**: Frontend UI (HTML/JS interface)
+- **Phase 3**: Testing setup and fixes
 
 ## Deployment
 
