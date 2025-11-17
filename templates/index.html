@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Product Importer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h1 class="card-title">Welcome to Product Importer</h1>
+                <p class="card-text">A scalable web application for importing and managing products from CSV files.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="bi bi-upload" style="font-size: 3rem; color: #0d6efd;"></i>
+                <h5 class="card-title mt-3">Upload CSV</h5>
+                <p class="card-text">Import up to 500,000 products from CSV files with real-time progress tracking.</p>
+                <a href="/upload/" class="btn btn-primary">Upload Now</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="bi bi-list-ul" style="font-size: 3rem; color: #198754;"></i>
+                <h5 class="card-title mt-3">Manage Products</h5>
+                <p class="card-text">View, create, update, and delete products with advanced filtering and pagination.</p>
+                <a href="/products/" class="btn btn-success">View Products</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="bi bi-link-45deg" style="font-size: 3rem; color: #ffc107;"></i>
+                <h5 class="card-title mt-3">Configure Webhooks</h5>
+                <p class="card-text">Set up webhooks to receive notifications when products are created, updated, or deleted.</p>
+                <a href="/webhooks/" class="btn btn-warning">Manage Webhooks</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
