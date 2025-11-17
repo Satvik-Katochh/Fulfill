@@ -451,12 +451,14 @@ Each commit is focused and meaningful, demonstrating clear planning and executio
 The application is deployed on **AWS EC2** with:
 
 - **Gunicorn**: Production WSGI server
-- **Nginx**: Reverse proxy and static file serving
+- **Nginx**: Reverse proxy and static file serving (HTTP on port 80)
 - **PostgreSQL**: Production database
 - **Redis**: Celery message broker
 - **Systemd**: Service management for Gunicorn and Celery
 
 **Deployment URL:** [http://3.235.20.127](http://3.235.20.127)
+
+**Note:** The application uses HTTP (port 80). HTTPS is not configured. Please use `http://` when accessing the application. Some browsers may show a "Not secure" warning - this is expected and does not affect functionality.
 
 ---
 
