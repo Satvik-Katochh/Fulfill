@@ -18,7 +18,13 @@
                     <div class="mb-3">
                         <label for="csvFile" class="form-label">Select CSV File</label>
                         <input type="file" class="form-control" id="csvFile" name="file" accept=".csv" required>
-                        <div class="form-text">Maximum file size: 500MB. Supports up to 500,000 records.</div>
+                        <div class="form-text">
+                            Maximum file size: 500MB. Supports up to 500,000 records.
+                            <br>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> For large files (90+ MB with 500,000 records), upload may take approximately 1-2 minutes depending on your connection speed.
+                            </small>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary" id="uploadBtn">
                         <i class="bi bi-upload"></i> Upload and Import
