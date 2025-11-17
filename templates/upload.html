@@ -80,7 +80,7 @@ function showToast(title, message, type = 'success') {
     toast.show();
 }
 
-document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+document.getElementById('uploadForm').addEventListener('submit', (e) => {
     e.preventDefault();
     
     const fileInput = document.getElementById('csvFile');
@@ -117,51 +117,88 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
     uploadBtn.disabled = true;
     uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Uploading...';
     
-    try {
-        // Update status: File is being uploaded
-        statusText.textContent = 'Uploading file...';
-        
-        const response = await fetch(`${API_BASE}/upload/`, {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Upload failed');
+    // Use XMLHttpRequest to track upload progress
+    const xhr = new XMLHttpRequest();
+    
+    // Track upload progress (real-time percentage)
+    xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100);
+            // Update progress bar during upload
+            progressBar.style.width = percentComplete + '%';
+            progressBar.setAttribute('aria-valuenow', percentComplete);
+            progressText.textContent = percentComplete + '%';
+            statusText.textContent = `Uploading file... ${percentComplete}%`;
         }
-        
-        // File upload completed - update status
-        statusText.textContent = 'File uploaded, starting import...';
-        
-        const data = await response.json();
-        const jobId = data.id;
-        
-        // Small delay to show "starting import" message, then start processing
-        setTimeout(() => {
-            statusText.textContent = 'Processing...';
-            // Start polling for progress immediately
-            pollProgress(jobId);
-        }, 300);
-        
-    } catch (error) {
-        // Show error message with retry option
+    });
+    
+    // Handle upload completion
+    xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+                const data = JSON.parse(xhr.responseText);
+                const jobId = data.id;
+                
+                // File upload completed - update status
+                statusText.textContent = 'File uploaded, starting import...';
+                progressBar.style.width = '100%';
+                progressText.textContent = '100%';
+                
+                // Small delay to show "starting import" message, then start processing
+                setTimeout(() => {
+                    // Reset progress bar for import progress
+                    progressBar.style.width = '0%';
+                    progressText.textContent = '0%';
+                    statusText.textContent = 'Processing...';
+                    // Start polling for import progress
+                    pollProgress(jobId);
+                }, 500);
+            } catch (error) {
+                handleUploadError('Failed to parse server response', error);
+            }
+        } else {
+            // Server returned error
+            try {
+                const error = JSON.parse(xhr.responseText);
+                handleUploadError(error.error || 'Upload failed', null);
+            } catch (e) {
+                handleUploadError('Upload failed', null);
+            }
+        }
+    });
+    
+    // Handle upload errors
+    xhr.addEventListener('error', () => {
+        handleUploadError('Network error: Failed to upload file', null);
+    });
+    
+    // Handle upload abort
+    xhr.addEventListener('abort', () => {
+        handleUploadError('Upload cancelled', null);
+    });
+    
+    // Helper function to handle errors
+    function handleUploadError(message, error) {
         const errorDiv = document.getElementById('errorMessage');
         const errorText = document.getElementById('errorText');
         const retryBtn = document.getElementById('retryBtn');
-        errorText.textContent = error.message || 'Failed to upload file';
+        errorText.textContent = message || 'Failed to upload file';
         errorDiv.style.display = 'block';
         retryBtn.style.display = 'inline-block';
         
         statusText.textContent = 'Upload Failed';
-        statusText.className = 'text-danger';
+        statusText.className = 'text-danger fw-bold';
         progressBar.classList.remove('progress-bar-animated');
         progressBar.classList.add('bg-danger');
         
-        showToast('Upload Failed', error.message || 'Failed to upload file', 'error');
+        showToast('Upload Failed', message || 'Failed to upload file', 'error');
         uploadBtn.disabled = false;
         uploadBtn.innerHTML = '<i class="bi bi-upload"></i> Upload and Import';
     }
+    
+    // Start the upload
+    xhr.open('POST', `${API_BASE}/upload/`);
+    xhr.send(formData);
 });
 
 function pollProgress(jobId) {
