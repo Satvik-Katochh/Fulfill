@@ -48,7 +48,7 @@ services:
     name: fulfill-worker
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: celery -A fulfill worker --loglevel=info
+    startCommand: celery -A fulfill worker --loglevel=info --pool=solo
     envVars:
       - key: SECRET_KEY
         fromService:
