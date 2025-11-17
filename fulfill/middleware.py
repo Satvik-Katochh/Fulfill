@@ -2,7 +2,6 @@
 Custom middleware to exempt API routes from CSRF protection.
 """
 from django.utils.deprecation import MiddlewareMixin
-from django.views.decorators.csrf import csrf_exempt
 
 
 class DisableCSRFForAPI(MiddlewareMixin):

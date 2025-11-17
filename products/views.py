@@ -1,13 +1,11 @@
 """
 API views for products app.
 """
-import os
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.conf import settings
-from django.db.models import Q
 from django.utils import timezone
 from .models import Product, ImportJob
 from .serializers import ProductSerializer, ProductListSerializer, ImportJobSerializer

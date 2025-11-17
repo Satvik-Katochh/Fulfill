@@ -47,7 +47,12 @@
                 <div class="text-muted small">
                     <span id="processedRecords">0</span> / <span id="totalRecords">0</span> records processed
                 </div>
-                <div id="errorMessage" class="alert alert-danger mt-2" style="display: none;"></div>
+                <div id="errorMessage" class="alert alert-danger mt-2" style="display: none;">
+                    <div id="errorText"></div>
+                    <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="retryBtn" onclick="retryUpload()" style="display: none;">
+                        <i class="bi bi-arrow-clockwise"></i> Retry Upload
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -115,6 +120,14 @@ document.getElementById('uploadForm').addEventListener('submit', async (e) => {
         pollProgress(jobId);
         
     } catch (error) {
+        // Show error message with retry option
+        const errorDiv = document.getElementById('errorMessage');
+        const errorText = document.getElementById('errorText');
+        const retryBtn = document.getElementById('retryBtn');
+        errorText.textContent = error.message || 'Failed to upload file';
+        errorDiv.style.display = 'block';
+        retryBtn.style.display = 'inline-block';
+        
         showToast('Upload Failed', error.message || 'Failed to upload file', 'error');
         uploadBtn.disabled = false;
         uploadBtn.innerHTML = '<i class="bi bi-upload"></i> Upload and Import';
@@ -158,8 +171,11 @@ function pollProgress(jobId) {
                 statusText.textContent = 'Import Failed';
                 statusText.className = 'text-danger';
                 const errorDiv = document.getElementById('errorMessage');
-                errorDiv.textContent = data.error_message || 'Unknown error';
+                const errorText = document.getElementById('errorText');
+                const retryBtn = document.getElementById('retryBtn');
+                errorText.textContent = data.error_message || 'Unknown error occurred';
                 errorDiv.style.display = 'block';
+                retryBtn.style.display = 'inline-block';
                 showToast('Import Failed', data.error_message || 'Unknown error occurred', 'error');
                 clearInterval(interval);
                 document.getElementById('uploadBtn').disabled = false;
@@ -174,6 +190,25 @@ function pollProgress(jobId) {
             showToast('Error', 'Failed to check import progress', 'error');
         }
     }, 2000); // Poll every 2 seconds
+}
+
+function retryUpload() {
+    // Hide error message and retry button
+    document.getElementById('errorMessage').style.display = 'none';
+    document.getElementById('retryBtn').style.display = 'none';
+    
+    // Reset progress card
+    document.getElementById('progressCard').style.display = 'none';
+    document.getElementById('progressBar').style.width = '0%';
+    document.getElementById('progressText').textContent = '0%';
+    document.getElementById('processedRecords').textContent = '0';
+    document.getElementById('totalRecords').textContent = '0';
+    
+    // Clear file input
+    document.getElementById('csvFile').value = '';
+    
+    // Focus on file input for user to select file again
+    document.getElementById('csvFile').focus();
 }
 </script>
 {% endblock %}

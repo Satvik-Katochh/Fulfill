@@ -2,12 +2,8 @@
 Celery tasks for product operations.
 """
 import csv
-import os
 from typing import Dict, List, Tuple
 from celery import shared_task
-from django.conf import settings
-from django.db import transaction
-from django.db.models import Q
 from .models import Product, ImportJob
 import logging
 
