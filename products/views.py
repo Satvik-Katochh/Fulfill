@@ -175,7 +175,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         serializer = ImportJobSerializer(import_job)
         return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
 
-    @action(detail=False, methods=['get'], url_path='upload/(?P<job_id>[0-9]+)/status')
+    @action(detail=False, methods=['get'], url_path='upload/(?P<job_id>[^/.]+)/status')
     def upload_status(self, request, job_id=None):
         """
         Get status of CSV import job.
