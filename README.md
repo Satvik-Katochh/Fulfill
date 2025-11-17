@@ -71,11 +71,12 @@ This application implements all requirements from the screening task:
    - Click "Choose File" or drag and drop your CSV file
    - CSV format: `name,sku,description` (header required)
    - Click "Upload and Import"
+   - The UI shows real-time upload and processing progress
 
 3. **Monitor Progress:**
    - Real-time progress bar shows percentage complete
-   - Status updates: "Pending" → "Processing" → "Completed"
-   - Progress updates every 2 seconds automatically
+   - Status updates: "Uploading file..." → "Processing..." → "Completed"
+   - Progress updates automatically
    - If error occurs, error message is displayed
 
 4. **View Results:**
@@ -91,10 +92,10 @@ Product Name,ABC-123,Product description here
 Another Product,XYZ-456,Another description
 ```
 
-**Test with Sample File:**
+**Test Files:**
 
-- Use `sample_products_500.csv` included in the repository (500 products)
-- Or use the full 500,000 product CSV from the Google Drive link in requirements
+- **Small Test File**: Use `sample_products_500.csv` included in the repository (500 products)
+- **Full Test File**: Use the 500,000 product CSV from the [Google Drive link](https://drive.google.com/file/d/19J8MfLmRqAIdBXBCiZT4ABTjEa2RqSmt/view) in requirements
 
 ---
 
@@ -295,6 +296,7 @@ You can use services like:
 - **Async Tasks**: Long-running operations handled by Celery workers
 - **Database Indexing**: SKU field indexed for fast lookups
 - **Chunked Processing**: Large files processed in manageable chunks
+- **Real-time Progress**: Upload and processing progress tracked in real-time
 
 ---
 
@@ -332,12 +334,26 @@ You can use services like:
    - Create/update/delete a product
    - Check webhook.site to see the payload received
 
-### Test with Large File
+### Test with Large File (500,000 Records)
 
-1. Download the 500,000 product CSV from the Google Drive link in requirements
-2. Upload via the UI
-3. Monitor progress (may take several minutes)
-4. Verify all products are imported correctly
+1. **Download the CSV:**
+   - Download the 500,000 product CSV from the [Google Drive link](https://drive.google.com/file/d/19J8MfLmRqAIdBXBCiZT4ABTjEa2RqSmt/view)
+
+2. **Upload via UI:**
+   - Go to Upload page: [http://3.235.20.127/upload/](http://3.235.20.127/upload/)
+   - Select the downloaded CSV file
+   - Click "Upload and Import"
+
+3. **Monitor Progress:**
+   - Watch the progress bar update in real-time
+   - Status will show: "Uploading file..." → "Processing..." → "Completed"
+   - Progress updates automatically
+
+4. **Verify Results:**
+   - After completion, click "View Products"
+   - Verify all products are imported
+   - Check that duplicate SKUs were overwritten (case-insensitive)
+   - Test filtering and pagination with large dataset
 
 ---
 
@@ -429,6 +445,7 @@ python manage.py runserver
 - **Error Handling**: Comprehensive error handling throughout
 - **Type Hints**: Type annotations where appropriate
 - **Comments**: Clear comments explaining complex logic
+- **Optimized Algorithms**: Chunked processing and bulk operations for efficiency
 
 ---
 
